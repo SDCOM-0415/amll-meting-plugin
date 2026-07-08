@@ -51,8 +51,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
-          name: ${{ inputs.release_type == 'pre' && format('pre-release {0}', inputs.release_title) || format('Latest {0}', inputs.release_title) }}
-          prerelease: false
+          name: ${{ inputs.release_title }}
+          prerelease: ${{ inputs.release_type == 'pre' }}
+          make_latest: ${{ inputs.release_type == 'latest' }}
           files: |
             release/amll-meting-plugin.js
         env:
