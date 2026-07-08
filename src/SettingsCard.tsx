@@ -34,7 +34,7 @@ function useMetingPlaylists() {
   const [playlists, setPlaylists] = useState<any[]>([]);
   const reload = useCallback(async () => {
     const db = extensionContext.playerDB;
-    const all = await db.playlists.toArray();
+    const all = await db.playlists.getAll();
     setPlaylists(all.filter((p: any) => p.metingServer && p.metingPlaylistId));
   }, []);
   return { playlists, reload };
@@ -52,9 +52,6 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
 
   const songsToPut: any[] = [];
   const songIds: string[] = [];
-  const now = Date.now();
-  const emptyBlob = new Blob([], { type: "audio/mpeg" });
-  const coverBlob = new Blob([], { type: "image/png" });
 
   for (const s of songs) {
     if (!s.url) continue;
@@ -66,33 +63,23 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
       songName: s.title || existing?.songName || "Unknown Title",
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
-      cover: existing?.cover ?? coverBlob,
-      coverUrl: s.pic || existing?.coverUrl,
-      file: existing?.file ?? emptyBlob,
       duration: existing?.duration || 0,
       lyricFormat: s.lrc ? "lrc" : existing?.lyricFormat || "",
       lyric: s.lrc || existing?.lyric || "",
-      translatedLrc: existing?.translatedLrc,
-      romanLrc: existing?.romanLrc,
-      addTime: existing?.addTime ?? now,
-      accessTime: now,
-      lyricOffset: existing?.lyricOffset,
+      translatedLrc: existing?.translatedLrc ?? null,
+      romanLrc: existing?.romanLrc ?? null,
+      coverPath: existing?.coverPath ?? null,
     });
     songIds.push(id);
   }
 
   if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
 
-  const playlistId = await db.playlists.add({
-    name: form.name || `${form.server} 歌单 ${form.playlistId}`,
-    createTime: now,
-    updateTime: now,
-    playTime: 0,
-    songIds,
-    metingServer: form.server,
-    metingPlaylistId: form.playlistId,
-    metingApiUrl: apiUrl,
-  });
+  const playlistId = await db.playlists.create(
+    form.name || `${form.server} 歌单 ${form.playlistId}`
+  );
+
+  if (songIds.length > 0) await db.playlists.addSongs(playlistId, songIds);
 
   return String(playlistId);
 }
@@ -106,32 +93,23 @@ async function addSingleSong(
   const song = await fetchMetingSong(apiUrl, server, songId);
   const id = await makeSongId(song.url);
   const db = extensionContext.playerDB;
-  const now = Date.now();
-  const emptyBlob = new Blob([], { type: "audio/mpeg" });
-  const coverBlob = new Blob([], { type: "image/png" });
+  const existing = await db.songs.get(id);
 
   await db.songs.upsert([{
     id,
     filePath: song.url,
     songName: song.title || "Unknown Title",
     songArtists: song.author || "Unknown Artist",
-    songAlbum: "Unknown Album",
-    cover: coverBlob,
-    coverUrl: song.pic,
-    file: emptyBlob,
-    duration: 0,
-    lyricFormat: song.lrc ? "lrc" : "",
-    lyric: song.lrc || "",
-    addTime: now,
-    accessTime: now,
+    songAlbum: existing?.songAlbum || "Unknown Album",
+    duration: existing?.duration || 0,
+    lyricFormat: song.lrc ? "lrc" : existing?.lyricFormat || "",
+    lyric: song.lrc || existing?.lyric || "",
+    translatedLrc: existing?.translatedLrc ?? null,
+    romanLrc: existing?.romanLrc ?? null,
+    coverPath: existing?.coverPath ?? null,
   }]);
 
-  const playlist = await db.playlists.get(targetPlaylistId);
-  if (playlist && !playlist.songIds.includes(id)) {
-    await db.playlists.update(targetPlaylistId, (obj: any) => {
-      obj.songIds.unshift(id);
-    });
-  }
+  await db.playlists.addSongs(targetPlaylistId, [id]);
 }
 
 async function refreshMetingPlaylist(playlistId: number): Promise<void> {
@@ -148,9 +126,6 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
 
   const songsToPut: any[] = [];
   const songIds: string[] = [];
-  const now = Date.now();
-  const emptyBlob = new Blob([], { type: "audio/mpeg" });
-  const coverBlob = new Blob([], { type: "image/png" });
 
   for (const s of songs) {
     if (!s.url) continue;
@@ -162,23 +137,18 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
       songName: s.title || existing?.songName || "Unknown Title",
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
-      cover: existing?.cover ?? coverBlob,
-      coverUrl: s.pic || existing?.coverUrl,
-      file: existing?.file ?? emptyBlob,
       duration: existing?.duration || 0,
       lyricFormat: s.lrc ? "lrc" : existing?.lyricFormat || "",
       lyric: s.lrc || existing?.lyric || "",
-      translatedLrc: existing?.translatedLrc,
-      romanLrc: existing?.romanLrc,
-      addTime: existing?.addTime ?? now,
-      accessTime: now,
-      lyricOffset: existing?.lyricOffset,
+      translatedLrc: existing?.translatedLrc ?? null,
+      romanLrc: existing?.romanLrc ?? null,
+      coverPath: existing?.coverPath ?? null,
     });
     songIds.push(id);
   }
 
   if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
-  await db.playlists.update(playlistId, { songIds, updateTime: now });
+  if (songIds.length > 0) await db.playlists.addSongs(playlistId, songIds);
 }
 
 export function SettingsCard() {
@@ -206,7 +176,7 @@ export function SettingsCard() {
 
   const loadPlaylists = useCallback(async () => {
     const db = extensionContext.playerDB;
-    const all = await db.playlists.toArray();
+    const all = await db.playlists.getAll();
     setPlaylists(all);
     setShowPlaylists(true);
   }, []);
