@@ -81,7 +81,7 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     songIds.push(id);
   }
 
-  if (songsToPut.length > 0) await db.songs.bulkPut(songsToPut);
+  if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
 
   const playlistId = await db.playlists.add({
     name: form.name || `${form.server} 歌单 ${form.playlistId}`,
@@ -110,7 +110,7 @@ async function addSingleSong(
   const emptyBlob = new Blob([], { type: "audio/mpeg" });
   const coverBlob = new Blob([], { type: "image/png" });
 
-  await db.songs.put({
+  await db.songs.upsert([{
     id,
     filePath: song.url,
     songName: song.title || "Unknown Title",
@@ -124,7 +124,7 @@ async function addSingleSong(
     lyric: song.lrc || "",
     addTime: now,
     accessTime: now,
-  });
+  }]);
 
   const playlist = await db.playlists.get(targetPlaylistId);
   if (playlist && !playlist.songIds.includes(id)) {
@@ -177,7 +177,7 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     songIds.push(id);
   }
 
-  if (songsToPut.length > 0) await db.songs.bulkPut(songsToPut);
+  if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
   await db.playlists.update(playlistId, { songIds, updateTime: now });
 }
 
