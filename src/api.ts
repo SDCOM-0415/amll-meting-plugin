@@ -1,3 +1,5 @@
+declare const extensionContext: any;
+
 export const METING_API_PRESETS = [
   {
     value: "meting",
@@ -57,7 +59,7 @@ export async function fetchMetingSong(
   const base = normalizeApiUrl(apiUrl);
   const sep = base.includes("?") ? "&" : "?";
   const url = `${base}${sep}server=${server}&type=song&id=${id.trim()}&r=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await extensionContext.http.fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`请求失败: ${res.status}`);
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0)
@@ -76,7 +78,7 @@ export async function fetchMetingPlaylist(
   const base = normalizeApiUrl(apiUrl);
   const sep = base.includes("?") ? "&" : "?";
   const url = `${base}${sep}server=${server}&type=playlist&id=${playlistId.trim()}&r=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await extensionContext.http.fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`请求失败: ${res.status}`);
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0)

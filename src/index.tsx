@@ -15,7 +15,6 @@ let currentMetingId: string | null = null;
 function getAudio(): HTMLAudioElement {
     if (!audioEl) {
         audioEl = new Audio();
-        audioEl.crossOrigin = "anonymous";
     }
     return audioEl;
 }
@@ -53,8 +52,13 @@ function parseLrc(lyricStr: string): any[] {
 async function loadAndPlayMetingSong(songId: string) {
     const { jotaiStore, amllStates, playerDB } = extensionContext;
 
+    console.log("[meting] loadAndPlayMetingSong:", songId);
     const song = await playerDB.songs.get(songId);
-    if (!song?.filePath) return;
+    console.log("[meting] song from db:", song);
+    if (!song?.filePath) {
+        console.error("[meting] no filePath for song:", songId);
+        return;
+    }
 
     currentMetingId = songId;
 
@@ -84,12 +88,15 @@ async function loadAndPlayMetingSong(songId: string) {
 
     audio.src = song.filePath;
     audio.currentTime = 0;
+    console.log("[meting] set audio.src:", song.filePath);
 
     audio.onloadedmetadata = () => {
+        console.log("[meting] audio loadedmetadata, duration:", audio.duration);
         jotaiStore.set(amllStates.musicDurationAtom, (audio.duration * 1000) | 0);
     };
 
     audio.onended = () => {
+        console.log("[meting] audio ended");
         jotaiStore.set(amllStates.musicPlayingAtom, false);
         stopPositionSync();
         const queueManager = jotaiStore.get(extensionContext.playerStates.queueManagerAtom);
@@ -97,16 +104,18 @@ async function loadAndPlayMetingSong(songId: string) {
     };
 
     audio.onerror = () => {
+        console.error("[meting] audio error, code:", audio.error?.code, "message:", audio.error?.message, "src:", audio.src);
         jotaiStore.set(amllStates.musicPlayingAtom, false);
         stopPositionSync();
-        console.error("[amll-meting-plugin] 音频加载失败", audio.src);
     };
 
     startPositionSync();
+    console.log("[meting] calling audio.play()");
     audio.play().then(() => {
+        console.log("[meting] audio.play() resolved, setting musicPlayingAtom=true");
         jotaiStore.set(amllStates.musicPlayingAtom, true);
     }).catch((e) => {
-        console.error("[amll-meting-plugin] 播放失败", e);
+        console.error("[meting] audio.play() rejected:", e);
         jotaiStore.set(amllStates.musicPlayingAtom, false);
     });
 }
@@ -128,17 +137,21 @@ function teardown() {
 }
 
 function setup() {
+    console.log("[meting] setup() called");
     extensionContext.registerComponent("settings", SettingsCard);
 
     extensionContext.addEventListener("extension-load", () => {
+        console.log("[meting] extension-load fired");
         const { jotaiStore, amllStates, playerStates } = extensionContext;
 
         unsubQueue = jotaiStore.sub(
             playerStates.queueCurrentSongAtom,
             async () => {
                 const song = jotaiStore.get(playerStates.queueCurrentSongAtom);
+                console.log("[meting] queueCurrentSong changed:", song?.id);
                 if (!song?.id?.startsWith(PLUGIN_SOURCE_PREFIX)) {
                     if (currentMetingId !== null) {
+                        console.log("[meting] leaving meting song, stopping audio");
                         currentMetingId = null;
                         stopPositionSync();
                         if (audioEl) {
@@ -148,6 +161,7 @@ function setup() {
                     }
                     return;
                 }
+                console.log("[meting] detected meting song, loading:", song.id);
                 await loadAndPlayMetingSong(song.id);
             }
         );
