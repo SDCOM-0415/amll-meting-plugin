@@ -1,0 +1,59 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 请选择发布版本类型
+        type: choice
+        required: true
+        default: latest
+        options:
+          - latest
+          - pre
+      release_tag:
+        description: 输入发布 Tag 标题
+        type: string
+        required: true
+      release_title:
+        description: 输入 Release 标题
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package artifact
+        run: |
+          mkdir -p release
+          cp dist/amll-meting-plugin.js release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_title }}
+          prerelease: ${{ inputs.release_type == 'pre' }}
+          files: |
+            release/amll-meting-plugin.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
