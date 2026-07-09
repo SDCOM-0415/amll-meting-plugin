@@ -41,9 +41,13 @@ function startPositionSync() {
     rafId = requestAnimationFrame(loop);
 }
 
-function parseLrc(lyricStr: string): any[] {
+function parseLrcToCoreLine(lyricStr: string): any[] {
     try {
-        return extensionContext.lyric.parseLrc(lyricStr);
+        const lines = extensionContext.lyric.parseLrc(lyricStr);
+        return lines.map((line: any) => ({
+            ...line,
+            words: line.words.map((word: any) => ({ ...word, obscene: false })),
+        }));
     } catch {
         return [];
     }
@@ -73,12 +77,26 @@ async function loadAndPlayMetingSong(songId: string) {
             .split("/")
             .map((a: string) => ({ id: a.trim(), name: a.trim() }))
     );
-    jotaiStore.set(amllStates.musicCoverAtom, "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+    const coverUrl = song.coverPath || "";
+    if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
+        extensionContext.http.fetch(coverUrl)
+            .then((res: any) => res.blob())
+            .then((blob: Blob) => {
+                const objectUrl = URL.createObjectURL(blob);
+                jotaiStore.set(amllStates.musicCoverAtom, objectUrl);
+            })
+            .catch(() => {
+                jotaiStore.set(amllStates.musicCoverAtom, "");
+            });
+    } else {
+        jotaiStore.set(amllStates.musicCoverAtom, coverUrl);
+    }
     jotaiStore.set(amllStates.musicPlayingPositionAtom, 0);
     jotaiStore.set(amllStates.musicDurationAtom, (song.duration * 1000) | 0);
 
     if (song.lyric && song.lyricFormat === "lrc") {
-        const lines = parseLrc(song.lyric);
+        const lines = parseLrcToCoreLine(song.lyric);
+        console.log("[meting] lyric lines:", lines.length, "lyric preview:", song.lyric.substring(0, 100));
         jotaiStore.set(amllStates.musicLyricLinesAtom, lines);
         jotaiStore.set(amllStates.hideLyricViewAtom, lines.length === 0);
     } else {

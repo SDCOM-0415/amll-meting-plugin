@@ -68,7 +68,7 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
       lyric: s.lrc || existing?.lyric || "",
       translatedLrc: existing?.translatedLrc ?? null,
       romanLrc: existing?.romanLrc ?? null,
-      coverPath: existing?.coverPath ?? null,
+      coverPath: s.pic || existing?.coverPath || null,
     });
     songIds.push(id);
   }
@@ -106,7 +106,7 @@ async function addSingleSong(
     lyric: song.lrc || existing?.lyric || "",
     translatedLrc: existing?.translatedLrc ?? null,
     romanLrc: existing?.romanLrc ?? null,
-    coverPath: existing?.coverPath ?? null,
+    coverPath: song.pic || existing?.coverPath || null,
   }]);
 
   await db.playlists.addSongs(targetPlaylistId, [id]);
@@ -142,7 +142,7 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
       lyric: s.lrc || existing?.lyric || "",
       translatedLrc: existing?.translatedLrc ?? null,
       romanLrc: existing?.romanLrc ?? null,
-      coverPath: existing?.coverPath ?? null,
+      coverPath: s.pic || existing?.coverPath || null,
     });
     songIds.push(id);
   }
