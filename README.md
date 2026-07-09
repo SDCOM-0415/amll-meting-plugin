@@ -47,8 +47,8 @@ npm run build
 
 ## 📝 贡献与致谢
 
-- 核心机制与歌词渲染强依赖于 [@applemusic-like-lyrics/lyric](https://github.com/aiktb/applemusic-like-lyrics) 和 AMLL Player 宿主环境。
-- 音源 API 支持来自 [Meting API](https://github.com/metowolf/Meting)。
+- 核心机制与歌词渲染强依赖于 [@applemusic-like-lyrics/lyric](https://github.com/amll-dev/applemusic-like-lyrics) 。
+- 音源 API 支持来自 [Meting API](https://cnb.cool/SDCOM/Meting-Api)。
 
 ---
 *Created by SDCOM-0415*
