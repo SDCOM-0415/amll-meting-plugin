@@ -156,12 +156,14 @@ async function loadAndPlayMetingSong(songId: string) {
 
     let finalLyric = song.lyric;
     let finalTransLyric = song.translatedLrc;
+    let needUpdateDb = false;
 
     if (finalLyric && (finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
         try {
             const res = await extensionContext.http.fetch(finalLyric);
             if (res.ok) {
                 finalLyric = await res.text();
+                needUpdateDb = true;
             }
         } catch (e) {
             console.warn("[meting] loadAndPlayMetingSong failed to fetch lyric url:", e);
@@ -173,10 +175,30 @@ async function loadAndPlayMetingSong(songId: string) {
             const res = await extensionContext.http.fetch(finalTransLyric);
             if (res.ok) {
                 finalTransLyric = await res.text();
+                needUpdateDb = true;
             }
         } catch (e) {
             console.warn("[meting] loadAndPlayMetingSong failed to fetch trans lyric url:", e);
         }
+    }
+
+    // 老数据自愈：如果 finalLyric 中仍然混合了 [translation]，立即拆分开并更新数据库
+    if (!finalTransLyric && finalLyric && finalLyric.includes("[translation]")) {
+        const transIndex = finalLyric.indexOf("[translation]");
+        if (transIndex !== -1) {
+            finalTransLyric = finalLyric.substring(transIndex + 13).trim();
+            finalLyric = finalLyric.substring(0, transIndex).trim();
+            needUpdateDb = true;
+        }
+    }
+
+    // 同步把修正干净且拉取到的纯正文本写回数据库，让弹窗编辑器能够正确显示
+    if (needUpdateDb && finalLyric) {
+        await playerDB.songs.update(songId, {
+            lyric: finalLyric,
+            translatedLrc: finalTransLyric || null
+        });
+        console.log("[meting] auto-healed and updated legacy lyric fields for song:", songId);
     }
 
     if (finalLyric) {
