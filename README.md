@@ -1,6 +1,6 @@
 # AMLL Meting 音乐插件 (amll-meting-plugin)
 
-为 [AMLL Player](https://github.com/aiktb/amll-page) 提供基于 Meting API 的多平台音乐接入与歌词解析支持。
+为 [AMLL Player](https://github.com/amll-dev/amll-player) 提供基于 Meting API 的多平台音乐接入与歌词解析支持。
 
 ## ✨ 核心特性
 
