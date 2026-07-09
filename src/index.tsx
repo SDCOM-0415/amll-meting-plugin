@@ -41,12 +41,29 @@ function startPositionSync() {
     rafId = requestAnimationFrame(loop);
 }
 
-function parseLrcToCoreLine(lyricStr: string): any[] {
+function parseLyricToCoreLine(lyricStr: string, format: string): any[] {
     try {
-        const lines = extensionContext.lyric.parseLrc(lyricStr);
+        let lines: any[] = [];
+        if (format === "yrc") {
+            lines = extensionContext.lyric.parseYrc(lyricStr);
+        } else if (format === "qrc") {
+            lines = extensionContext.lyric.parseQrc(lyricStr);
+        } else {
+            lines = extensionContext.lyric.parseLrc(lyricStr);
+        }
         return lines.map((line: any) => ({
             ...line,
-            words: line.words.map((word: any) => ({ ...word, obscene: false })),
+            words: line.words.map((word: any) => ({
+                ...word,
+                obscene: false,
+                romanWord: word.romanWord ?? ""
+            })),
+            startTime: line.words[0]?.startTime ?? 0,
+            endTime: line.words[line.words.length - 1]?.endTime ?? Number.POSITIVE_INFINITY,
+            translatedLyric: "",
+            romanLyric: "",
+            isBG: false,
+            isDuet: false
         }));
     } catch {
         return [];
@@ -94,9 +111,23 @@ async function loadAndPlayMetingSong(songId: string) {
     jotaiStore.set(amllStates.musicPlayingPositionAtom, 0);
     jotaiStore.set(amllStates.musicDurationAtom, (song.duration * 1000) | 0);
 
-    if (song.lyric && song.lyricFormat === "lrc") {
-        const lines = parseLrcToCoreLine(song.lyric);
-        console.log("[meting] lyric lines:", lines.length, "lyric preview:", song.lyric.substring(0, 100));
+    let finalLyric = song.lyric;
+    if (finalLyric && (finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
+        try {
+            const res = await extensionContext.http.fetch(finalLyric);
+            if (res.ok) {
+                finalLyric = await res.text();
+            }
+        } catch (e) {
+            console.warn("[meting] loadAndPlayMetingSong failed to fetch lyric url:", e);
+        }
+    }
+
+    if (finalLyric) {
+        // 如果数据存的是 lrc 但实际包含 yrc 的内容格式也可以进行一定兼容
+        const parsedFormat = song.lyricFormat || "lrc";
+        const lines = parseLyricToCoreLine(finalLyric, parsedFormat);
+        console.log("[meting] lyric lines:", lines.length, "lyric preview:", finalLyric.substring(0, 100));
         jotaiStore.set(amllStates.musicLyricLinesAtom, lines);
         jotaiStore.set(amllStates.hideLyricViewAtom, lines.length === 0);
     } else {

@@ -67,6 +67,18 @@ export async function fetchMetingSong(
   const song: MetingSongData = data[0];
   if (!song.url) throw new Error("无法获取歌曲音频地址");
   if (song.url.startsWith("//")) song.url = `https:${song.url}`;
+  
+  if (song.lrc && (song.lrc.startsWith("http://") || song.lrc.startsWith("https://"))) {
+    try {
+      const lrcRes = await extensionContext.http.fetch(song.lrc);
+      if (lrcRes.ok) {
+        song.lrc = await lrcRes.text();
+      }
+    } catch (e) {
+      console.warn("Meting fetched lyric url but failed to download:", e);
+    }
+  }
+  
   return song;
 }
 
@@ -83,10 +95,23 @@ export async function fetchMetingPlaylist(
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0)
     throw new Error("歌单数据为空");
-  return (data as MetingSongData[]).map((s) => {
-    if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
-    return s;
-  });
+  const songs = data as MetingSongData[];
+  await Promise.all(
+    songs.map(async (s) => {
+      if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
+      if (s.lrc && (s.lrc.startsWith("http://") || s.lrc.startsWith("https://"))) {
+        try {
+          const lrcRes = await extensionContext.http.fetch(s.lrc);
+          if (lrcRes.ok) {
+            s.lrc = await lrcRes.text();
+          }
+        } catch (e) {
+          console.warn("Meting playlist item fetched lyric url but failed to download:", e);
+        }
+      }
+    })
+  );
+  return songs;
 }
 
 export async function makeSongId(url: string): Promise<string> {

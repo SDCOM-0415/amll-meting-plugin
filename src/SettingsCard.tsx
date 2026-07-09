@@ -21,6 +21,15 @@ interface NewPlaylistForm {
   customApiUrl: string;
 }
 
+function detectLyricFormat(lrc: string | undefined | null): string {
+  if (!lrc) return "";
+  const trimmed = lrc.trim();
+  if (trimmed.includes('"t":') || trimmed.includes('"c":') || /\[\d+,\d+\]\(\d+,\d+\)/.test(trimmed)) {
+    return "yrc";
+  }
+  return "lrc";
+}
+
 const SERVERS: { value: MetingServer; label: string }[] = [
   { value: "netease", label: "网易云" },
   { value: "tencent", label: "QQ音乐" },
@@ -64,7 +73,7 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
-      lyricFormat: s.lrc ? "lrc" : existing?.lyricFormat || "",
+      lyricFormat: s.lrc ? detectLyricFormat(s.lrc) : existing?.lyricFormat || "",
       lyric: s.lrc || existing?.lyric || "",
       translatedLrc: existing?.translatedLrc ?? null,
       romanLrc: existing?.romanLrc ?? null,
@@ -102,7 +111,7 @@ async function addSingleSong(
     songArtists: song.author || "Unknown Artist",
     songAlbum: existing?.songAlbum || "Unknown Album",
     duration: existing?.duration || 0,
-    lyricFormat: song.lrc ? "lrc" : existing?.lyricFormat || "",
+    lyricFormat: song.lrc ? detectLyricFormat(song.lrc) : existing?.lyricFormat || "",
     lyric: song.lrc || existing?.lyric || "",
     translatedLrc: existing?.translatedLrc ?? null,
     romanLrc: existing?.romanLrc ?? null,
