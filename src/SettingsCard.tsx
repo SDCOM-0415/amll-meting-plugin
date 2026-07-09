@@ -50,7 +50,7 @@ function useMetingPlaylists() {
   const reload = useCallback(async () => {
     const db = extensionContext.playerDB;
     const all = await db.playlists.getAll();
-    setPlaylists(all.filter((p: any) => p.metingServer && p.metingPlaylistId));
+    setPlaylists(all.filter((p: any) => p.isMeting === true || (p.metingServer && p.metingPlaylistId) || p.name?.includes("歌单")));
   }, []);
   return { playlists, reload };
 }
@@ -103,7 +103,8 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
   if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
 
   const playlistId = await db.playlists.create(
-    form.name || `${form.server} 歌单 ${form.playlistId}`
+    form.name || `${form.server} 歌单 ${form.playlistId}`,
+    { metingServer: form.server, metingPlaylistId: form.playlistId, metingApiUrl: apiUrl }
   );
 
   if (songIds.length > 0) await db.playlists.addSongs(playlistId, songIds);
