@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import React, { useState, useCallback, Fragment } from "react";
+
 import {
     METING_API_PRESETS,
     normalizeApiUrl,
@@ -10,9 +11,6 @@ import {
   } from "./api";
 
 declare const extensionContext: any;
-declare const React: typeof import("react");
-
-const { createElement: h, Fragment } = React;
 
 interface NewPlaylistForm {
   name: string;
