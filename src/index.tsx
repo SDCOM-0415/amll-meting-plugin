@@ -57,7 +57,13 @@ function parseLyricToCoreLine(lyricStr: string, format: string, extTransLyric?: 
 
         let lines: any[] = [];
         if (format === "yrc") {
-            lines = extensionContext.lyric.parseYrc(mainLyricStr);
+            const yrcPattern = /^\[\d+,\d+\]\(\d+,\d+,\d+\)/m;
+            if (yrcPattern.test(mainLyricStr)) {
+                lines = extensionContext.lyric.parseYrc(mainLyricStr);
+            } else {
+                console.warn("[meting] lyric format marked as yrc but content is not yrc, fallback to lrc");
+                lines = extensionContext.lyric.parseLrc(mainLyricStr);
+            }
         } else if (format === "qrc") {
             lines = extensionContext.lyric.parseQrc(mainLyricStr);
         } else {

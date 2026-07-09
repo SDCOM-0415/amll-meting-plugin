@@ -24,9 +24,15 @@ interface NewPlaylistForm {
 
 function detectLyricFormat(lrc: string | undefined | null): string {
   if (!lrc) return "";
-  const trimmed = lrc.trim();
-  if (trimmed.includes('"t":') || trimmed.includes('"c":') || /\[\d+,\d+\]\(\d+,\d+\)/.test(trimmed)) {
+  const processLyricStr = lrc.trim();
+  const yrcPattern = /^\[\d+,\d+\]\(\d+,\d+,\d+\)/m;
+  const qrcPattern = /^\[\d+,\d+\]/m;
+
+  if (yrcPattern.test(processLyricStr)) {
     return "yrc";
+  }
+  if (qrcPattern.test(processLyricStr) && /\(\d+,\d+\)/.test(processLyricStr)) {
+    return "qrc";
   }
   return "lrc";
 }
@@ -213,15 +219,13 @@ export function SettingsCard() {
     "idle" | "loading" | "ok" | "error"
   >("idle");
   const [msg, setMsg] = useState("");
-  const [playlists, setPlaylists] = useState<any[]>([]);
+  const { playlists, reload: loadMetingPlaylists } = useMetingPlaylists();
   const [showPlaylists, setShowPlaylists] = useState(false);
 
   const loadPlaylists = useCallback(async () => {
-    const db = extensionContext.playerDB;
-    const all = await db.playlists.getAll();
-    setPlaylists(all);
+    await loadMetingPlaylists();
     setShowPlaylists(true);
-  }, []);
+  }, [loadMetingPlaylists]);
 
   const resolveApiUrl = (source: string, custom: string) =>
     source === "custom"
@@ -559,56 +563,30 @@ export function SettingsCard() {
         },
         msg
       ),
-    h(
-      "div",
-      { style: { marginTop: "14px", borderTop: "1px solid var(--gray-5, #ccc)", paddingTop: "12px" } },
-      h("h4", { style: { margin: "0 0 8px", fontSize: "13px" } }, "已导入的 Meting 歌单"),
-      h(
-        "button",
-        {
-          style: { ...btnStyle, background: "var(--gray-9, #888)", marginBottom: "8px", fontSize: "12px" },
-          onClick: loadPlaylists,
-        },
-        "刷新列表"
-      ),
-      showPlaylists &&
-        playlists.length === 0 &&
-        h("div", { style: { fontSize: "12px", color: "var(--gray-9)" } }, "暂无 Meting 歌单"),
-      showPlaylists &&
-        playlists
-          .filter((p: any) => p.metingServer && p.metingPlaylistId)
-          .map((p: any) =>
-            h(
-              "div",
-              {
-                key: p.id,
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "6px",
-                  fontSize: "13px",
-                },
-              },
-              h("span", { style: { flex: 1 } }, `${p.name || `歌单 #${p.id}`} (${p.metingServer})`),
-              h(
-                "button",
-                {
-                  style: {
-                    padding: "2px 8px",
-                    fontSize: "12px",
-                    borderRadius: "4px",
-                    border: "1px solid var(--gray-6)",
-                    cursor: "pointer",
-                    background: "transparent",
-                    color: "inherit",
-                  },
-                  onClick: () => handleRefresh(p.id),
-                },
-                "刷新"
-              )
-            )
-          )
-    )
-  );
-}
+    <div style={{ marginTop: "14px", borderTop: "1px solid var(--color-border)", paddingTop: "12px" }}>
+        <h4 style={{ margin: "0 0 8px", fontSize: "13px" }}>已导入的 Meting 歌单</h4>
+        <button
+          onClick={loadPlaylists}
+          style={{ padding: "6px 12px", background: "var(--color-bg-dark)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "4px", cursor: "pointer", marginBottom: "8px", fontSize: "12px" }}
+        >
+          刷新列表
+        </button>
+        
+        {showPlaylists && playlists.length === 0 ? (
+          <div style={{ fontSize: "12px", opacity: 0.6 }}>暂无 Meting 歌单</div>
+        ) : (
+          showPlaylists && playlists.map((p: any) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontSize: "13px" }}>
+              <span style={{ flex: 1 }}>{p.name || `歌单 #${p.id}`} ({p.metingServer})</span>
+              <button
+                onClick={() => handleRefresh(p.id)}
+                style={{ padding: "2px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid var(--color-border)", cursor: "pointer", background: "transparent", color: "inherit" }}
+              >
+                刷新
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
