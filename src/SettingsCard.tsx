@@ -163,6 +163,16 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     if (!s.url) continue;
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
+    let finalTrans = s.tlyric || existing?.translatedLrc || null;
+    let finalLrc = s.lrc || existing?.lyric || "";
+    if (!s.tlyric && finalLrc) {
+        const splitted = splitMetingLyric(finalLrc);
+        if (splitted.trans) {
+            finalLrc = splitted.main;
+            finalTrans = splitted.trans;
+        }
+    }
+
     songsToPut.push({
       id,
       filePath: s.url,
@@ -170,9 +180,9 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
-      lyricFormat: s.lrc ? "lrc" : existing?.lyricFormat || "",
-      lyric: s.lrc || existing?.lyric || "",
-      translatedLrc: existing?.translatedLrc ?? null,
+      lyricFormat: s.lrc ? detectLyricFormat(s.lrc) : existing?.lyricFormat || "",
+      lyric: finalLrc,
+      translatedLrc: finalTrans,
       romanLrc: existing?.romanLrc ?? null,
       coverPath: s.pic || existing?.coverPath || null,
     });

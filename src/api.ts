@@ -81,13 +81,19 @@ export async function fetchMetingSong(
   if (song.url.startsWith("//")) song.url = `https:${song.url}`;
   
   if (song.lrc && (song.lrc.startsWith("http://") || song.lrc.startsWith("https://"))) {
+    let originalUrl = song.lrc;
     try {
-      const lrcRes = await extensionContext.http.fetch(song.lrc);
+      const sep = originalUrl.includes("?") ? "&" : "?";
+      const lrcUrl = `${originalUrl}${sep}r=${Math.random()}`;
+      const lrcRes = await extensionContext.http.fetch(lrcUrl, { cache: "no-store" });
       if (lrcRes.ok) {
         song.lrc = await lrcRes.text();
+      } else {
+        song.lrc = "";
       }
     } catch (e) {
       console.warn("Meting fetched lyric url but failed to download:", e);
+      song.lrc = "";
     }
   }
 
@@ -116,13 +122,19 @@ export async function fetchMetingPlaylist(
     songs.map(async (s) => {
       if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
       if (s.lrc && (s.lrc.startsWith("http://") || s.lrc.startsWith("https://"))) {
+        let originalUrl = s.lrc;
         try {
-          const lrcRes = await extensionContext.http.fetch(s.lrc);
+          const sep = originalUrl.includes("?") ? "&" : "?";
+          const lrcUrl = `${originalUrl}${sep}r=${Math.random()}`;
+          const lrcRes = await extensionContext.http.fetch(lrcUrl, { cache: "no-store" });
           if (lrcRes.ok) {
             s.lrc = await lrcRes.text();
+          } else {
+            s.lrc = "";
           }
         } catch (e) {
           console.warn("Meting playlist item fetched lyric url but failed to download:", e);
+          s.lrc = "";
         }
       }
       const splitted = splitMetingLyric(s.lrc);
