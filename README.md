@@ -17,7 +17,7 @@
 
 ## 🚀 安装与使用
 
-1. 获取插件构建产物 `amll-meting-plugin.js`。
+1. 在[Release](https://github.com/SDCOM-0415/amll-meting-plugin/releases)页面获取插件构建产物 `amll-meting-plugin.js`。
 2. 打开 AMLL Player，进入 **设置** -> **扩展程序管理**。
 3. 加载该 `.js` 插件文件。
 4. 在侧边栏出现的 **“Meting 音乐插件”** 面板中，即可进行操作：
