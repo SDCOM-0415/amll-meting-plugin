@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import {
-  METING_API_PRESETS,
-  normalizeApiUrl,
-  fetchMetingSong,
-  fetchMetingPlaylist,
-  makeSongId,
-  type MetingServer,
-} from "./api";
+    METING_API_PRESETS,
+    normalizeApiUrl,
+    fetchMetingSong,
+    fetchMetingPlaylist,
+    makeSongId,
+    splitMetingLyric,
+    type MetingServer,
+  } from "./api";
 
 declare const extensionContext: any;
 declare const React: typeof import("react");
@@ -66,6 +67,18 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     if (!s.url) continue;
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
+    
+    // 向后兼容处理，如果之前存进了合并的 lrc
+    let finalTrans = s.tlyric || existing?.translatedLrc || null;
+    let finalLrc = s.lrc || existing?.lyric || "";
+    if (!s.tlyric && finalLrc) {
+        const splitted = splitMetingLyric(finalLrc);
+        if (splitted.trans) {
+            finalLrc = splitted.main;
+            finalTrans = splitted.trans;
+        }
+    }
+
     songsToPut.push({
       id,
       filePath: s.url,
@@ -74,8 +87,8 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
       lyricFormat: s.lrc ? detectLyricFormat(s.lrc) : existing?.lyricFormat || "",
-      lyric: s.lrc || existing?.lyric || "",
-      translatedLrc: existing?.translatedLrc ?? null,
+      lyric: finalLrc,
+      translatedLrc: finalTrans,
       romanLrc: existing?.romanLrc ?? null,
       coverPath: s.pic || existing?.coverPath || null,
     });
@@ -104,6 +117,16 @@ async function addSingleSong(
   const db = extensionContext.playerDB;
   const existing = await db.songs.get(id);
 
+  let finalTrans = song.tlyric || existing?.translatedLrc || null;
+  let finalLrc = song.lrc || existing?.lyric || "";
+  if (!song.tlyric && finalLrc) {
+      const splitted = splitMetingLyric(finalLrc);
+      if (splitted.trans) {
+          finalLrc = splitted.main;
+          finalTrans = splitted.trans;
+      }
+  }
+
   await db.songs.upsert([{
     id,
     filePath: song.url,
@@ -112,8 +135,8 @@ async function addSingleSong(
     songAlbum: existing?.songAlbum || "Unknown Album",
     duration: existing?.duration || 0,
     lyricFormat: song.lrc ? detectLyricFormat(song.lrc) : existing?.lyricFormat || "",
-    lyric: song.lrc || existing?.lyric || "",
-    translatedLrc: existing?.translatedLrc ?? null,
+    lyric: finalLrc,
+    translatedLrc: finalTrans,
     romanLrc: existing?.romanLrc ?? null,
     coverPath: song.pic || existing?.coverPath || null,
   }]);

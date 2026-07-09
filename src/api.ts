@@ -32,6 +32,18 @@ export interface MetingSongData {
   url: string;
   pic: string;
   lrc: string;
+  tlyric?: string;
+}
+
+export function splitMetingLyric(lrcStr?: string): { main: string; trans: string | null } {
+  if (!lrcStr) return { main: "", trans: null };
+  const idx = lrcStr.indexOf("[translation]");
+  if (idx !== -1) {
+    const main = lrcStr.substring(0, idx).trim();
+    const trans = lrcStr.substring(idx + 13).trim();
+    return { main, trans: trans || null };
+  }
+  return { main: lrcStr.trim(), trans: null };
 }
 
 export function normalizeApiUrl(input: string): string {
@@ -58,7 +70,7 @@ export async function fetchMetingSong(
 ): Promise<MetingSongData> {
   const base = normalizeApiUrl(apiUrl);
   const sep = base.includes("?") ? "&" : "?";
-  const url = `${base}${sep}server=${server}&type=song&id=${id.trim()}&r=${Date.now()}`;
+  const url = `${base}${sep}server=${server}&type=song&id=${id.trim()}&r=${Math.random()}`;
   const res = await extensionContext.http.fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`请求失败: ${res.status}`);
   const data = await res.json();
@@ -78,6 +90,10 @@ export async function fetchMetingSong(
       console.warn("Meting fetched lyric url but failed to download:", e);
     }
   }
+
+  const splitted = splitMetingLyric(song.lrc);
+  song.lrc = splitted.main;
+  song.tlyric = splitted.trans || undefined;
   
   return song;
 }
@@ -89,7 +105,7 @@ export async function fetchMetingPlaylist(
 ): Promise<MetingSongData[]> {
   const base = normalizeApiUrl(apiUrl);
   const sep = base.includes("?") ? "&" : "?";
-  const url = `${base}${sep}server=${server}&type=playlist&id=${playlistId.trim()}&r=${Date.now()}`;
+  const url = `${base}${sep}server=${server}&type=playlist&id=${playlistId.trim()}&r=${Math.random()}`;
   const res = await extensionContext.http.fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`请求失败: ${res.status}`);
   const data = await res.json();
@@ -109,6 +125,9 @@ export async function fetchMetingPlaylist(
           console.warn("Meting playlist item fetched lyric url but failed to download:", e);
         }
       }
+      const splitted = splitMetingLyric(s.lrc);
+      s.lrc = splitted.main;
+      s.tlyric = splitted.trans || undefined;
     })
   );
   return songs;

@@ -41,30 +41,73 @@ function startPositionSync() {
     rafId = requestAnimationFrame(loop);
 }
 
-function parseLyricToCoreLine(lyricStr: string, format: string): any[] {
+function parseLyricToCoreLine(lyricStr: string, format: string, extTransLyric?: string | null): any[] {
     try {
+        let mainLyricStr = lyricStr;
+        let transLyricStr = extTransLyric || "";
+        
+        // 切割翻译部分（如果尚未切割）
+        const transIndex = lyricStr.indexOf("[translation]");
+        if (transIndex !== -1) {
+            mainLyricStr = lyricStr.substring(0, transIndex).trim();
+            if (!transLyricStr) {
+                transLyricStr = lyricStr.substring(transIndex + 13).trim();
+            }
+        }
+
         let lines: any[] = [];
         if (format === "yrc") {
-            lines = extensionContext.lyric.parseYrc(lyricStr);
+            lines = extensionContext.lyric.parseYrc(mainLyricStr);
         } else if (format === "qrc") {
-            lines = extensionContext.lyric.parseQrc(lyricStr);
+            lines = extensionContext.lyric.parseQrc(mainLyricStr);
         } else {
-            lines = extensionContext.lyric.parseLrc(lyricStr);
+            lines = extensionContext.lyric.parseLrc(mainLyricStr);
         }
-        return lines.map((line: any) => ({
-            ...line,
-            words: line.words.map((word: any) => ({
-                ...word,
-                obscene: false,
-                romanWord: word.romanWord ?? ""
-            })),
-            startTime: line.words[0]?.startTime ?? 0,
-            endTime: line.words[line.words.length - 1]?.endTime ?? Number.POSITIVE_INFINITY,
-            translatedLyric: "",
-            romanLyric: "",
-            isBG: false,
-            isDuet: false
-        }));
+
+        let transLines: any[] = [];
+        if (transLyricStr) {
+            try {
+                transLines = extensionContext.lyric.parseLrc(transLyricStr);
+            } catch (e) {
+                console.warn("[meting] failed to parse translation lyric", e);
+            }
+        }
+
+        return lines.map((line: any) => {
+            const coreLine = {
+                ...line,
+                words: line.words.map((word: any) => ({
+                    ...word,
+                    obscene: false,
+                    romanWord: word.romanWord ?? ""
+                })),
+                startTime: line.words[0]?.startTime ?? 0,
+                endTime: line.words[line.words.length - 1]?.endTime ?? Number.POSITIVE_INFINITY,
+                translatedLyric: "",
+                romanLyric: "",
+                isBG: false,
+                isDuet: false
+            };
+
+            // 如果有翻译歌词，根据开始时间匹配翻译（容差放宽至 1000ms 找出最邻近）
+            if (transLines.length > 0) {
+                let bestMatch: any = null;
+                let minDiff = 1000;
+                for (const t of transLines) {
+                    const tStart = t.words[0]?.startTime ?? 0;
+                    const diff = Math.abs(tStart - coreLine.startTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestMatch = t;
+                    }
+                }
+                if (bestMatch && bestMatch.words) {
+                    coreLine.translatedLyric = bestMatch.words.map((w: any) => w.word || "").join("");
+                }
+            }
+
+            return coreLine;
+        });
     } catch {
         return [];
     }
@@ -112,6 +155,8 @@ async function loadAndPlayMetingSong(songId: string) {
     jotaiStore.set(amllStates.musicDurationAtom, (song.duration * 1000) | 0);
 
     let finalLyric = song.lyric;
+    let finalTransLyric = song.translatedLrc;
+
     if (finalLyric && (finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
         try {
             const res = await extensionContext.http.fetch(finalLyric);
@@ -123,10 +168,21 @@ async function loadAndPlayMetingSong(songId: string) {
         }
     }
 
+    if (finalTransLyric && (finalTransLyric.startsWith("http://") || finalTransLyric.startsWith("https://"))) {
+        try {
+            const res = await extensionContext.http.fetch(finalTransLyric);
+            if (res.ok) {
+                finalTransLyric = await res.text();
+            }
+        } catch (e) {
+            console.warn("[meting] loadAndPlayMetingSong failed to fetch trans lyric url:", e);
+        }
+    }
+
     if (finalLyric) {
         // 如果数据存的是 lrc 但实际包含 yrc 的内容格式也可以进行一定兼容
         const parsedFormat = song.lyricFormat || "lrc";
-        const lines = parseLyricToCoreLine(finalLyric, parsedFormat);
+        const lines = parseLyricToCoreLine(finalLyric, parsedFormat, finalTransLyric);
         console.log("[meting] lyric lines:", lines.length, "lyric preview:", finalLyric.substring(0, 100));
         jotaiStore.set(amllStates.musicLyricLinesAtom, lines);
         jotaiStore.set(amllStates.hideLyricViewAtom, lines.length === 0);
