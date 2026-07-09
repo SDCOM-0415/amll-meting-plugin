@@ -1,7 +1,7 @@
-import React from "react";
 import { SettingsCard } from "./SettingsCard";
 
 declare const extensionContext: any;
+declare const React: typeof import("react");
 
 const PLUGIN_SOURCE_PREFIX = "meting-";
 

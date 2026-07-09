@@ -1,4 +1,5 @@
-import React, { useState, useCallback, Fragment } from "react";
+declare const React: typeof import("react");
+const { createElement: h, Fragment, useState, useCallback } = React;
 
 import {
     METING_API_PRESETS,
@@ -561,30 +562,37 @@ export function SettingsCard() {
         },
         msg
       ),
-    <div style={{ marginTop: "14px", borderTop: "1px solid var(--color-border)", paddingTop: "12px" }}>
-        <h4 style={{ margin: "0 0 8px", fontSize: "13px" }}>已导入的 Meting 歌单</h4>
-        <button
-          onClick={loadPlaylists}
-          style={{ padding: "6px 12px", background: "var(--color-bg-dark)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "4px", cursor: "pointer", marginBottom: "8px", fontSize: "12px" }}
-        >
-          刷新列表
-        </button>
-        
-        {showPlaylists && playlists.length === 0 ? (
-          <div style={{ fontSize: "12px", opacity: 0.6 }}>暂无 Meting 歌单</div>
+    h(
+        "div",
+        { style: { marginTop: "14px", borderTop: "1px solid var(--color-border)", paddingTop: "12px" } },
+        h("h4", { style: { margin: "0 0 8px", fontSize: "13px" } }, "已导入的 Meting 歌单"),
+        h(
+          "button",
+          {
+            onClick: loadPlaylists,
+            style: { padding: "6px 12px", background: "var(--color-bg-dark)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "4px", cursor: "pointer", marginBottom: "8px", fontSize: "12px" }
+          },
+          "刷新列表"
+        ),
+        showPlaylists && playlists.length === 0 ? (
+          h("div", { style: { fontSize: "12px", opacity: 0.6 } }, "暂无 Meting 歌单")
         ) : (
           showPlaylists && playlists.map((p: any) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontSize: "13px" }}>
-              <span style={{ flex: 1 }}>{p.name || `歌单 #${p.id}`} ({p.metingServer})</span>
-              <button
-                onClick={() => handleRefresh(p.id)}
-                style={{ padding: "2px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid var(--color-border)", cursor: "pointer", background: "transparent", color: "inherit" }}
-              >
-                刷新
-              </button>
-            </div>
+            h(
+              "div",
+              { key: p.id, style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontSize: "13px" } },
+              h("span", { style: { flex: 1 } }, `${p.name || `歌单 #${p.id}`} (${p.metingServer})`),
+              h(
+                "button",
+                {
+                  onClick: () => handleRefresh(p.id),
+                  style: { padding: "2px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid var(--color-border)", cursor: "pointer", background: "transparent", color: "inherit" }
+                },
+                "刷新"
+              )
+            )
           ))
-        )}
-      </div>
+        )
+      )
     );
   }
