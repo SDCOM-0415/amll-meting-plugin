@@ -170,39 +170,6 @@ async function loadAndPlayMetingSong(songId: string) {
     let finalTransLyric = song.translatedLrc;
     let needUpdateDb = false;
 
-    if (finalLyric && finalLyric.startsWith("meting-lyric::")) {
-        let originalUrl = finalLyric.replace("meting-lyric::", "");
-        try {
-            let fetchUrl = originalUrl;
-            if (originalUrl.includes("meting")) {
-                const sep = originalUrl.includes("?") ? "&" : "?";
-                fetchUrl = `${originalUrl}${sep}r=${Math.random()}`;
-            }
-            const res = await extensionContext.http.fetch(fetchUrl);
-            if (res.ok) {
-                const text = await res.text();
-                if (text && !text.trim().startsWith("<")) {
-                    const splitted = splitMetingLyric(text);
-                    finalLyric = splitted.main;
-                    finalTransLyric = splitted.trans || finalTransLyric;
-                    
-                    const newFormat = detectLyricFormat(finalLyric);
-                    if (newFormat !== song.lyricFormat) {
-                        song.lyricFormat = newFormat;
-                    }
-                    needUpdateDb = true;
-                } else {
-                    console.warn("[meting] fetched lyric is HTML or invalid:", text.substring(0, 50));
-                    finalLyric = "";
-                }
-            } else {
-                console.warn("[meting] fetch lyric returned not ok:", res.status);
-            }
-        } catch (e) {
-            console.warn("[meting] loadAndPlayMetingSong failed to fetch lyric url:", e);
-        }
-    }
-
     // 老数据自愈：如果 finalLyric 中仍然混合了 [translation]，立即拆分开并更新数据库
     if (!finalTransLyric && finalLyric && finalLyric.includes("[translation]")) {
         const transIndex = finalLyric.indexOf("[translation]");
@@ -213,13 +180,41 @@ async function loadAndPlayMetingSong(songId: string) {
         }
     }
 
+    // 老数据自愈：如果数据库里还是 URL 或带 meting-lyric:: 前缀，尝试即时拉取
+    if (finalLyric && (finalLyric.startsWith("meting-lyric::") || finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
+        let originalUrl = finalLyric.startsWith("meting-lyric::") ? finalLyric.replace("meting-lyric::", "") : finalLyric;
+        try {
+            const sep = originalUrl.includes("?") ? "&" : "?";
+            const fetchUrl = `${originalUrl}${sep}r=${Math.random()}`;
+            console.log("[meting] on-play fetching lyric from URL:", fetchUrl);
+            const res = await extensionContext.http.fetch(fetchUrl);
+            if (res.ok) {
+                const text = await res.text();
+                if (text && !text.trim().startsWith("<")) {
+                    const splitted = splitMetingLyric(text);
+                    finalLyric = splitted.main;
+                    finalTransLyric = splitted.trans || finalTransLyric;
+                    const newFormat = detectLyricFormat(finalLyric);
+                    if (newFormat !== song.lyricFormat) {
+                        song.lyricFormat = newFormat;
+                    }
+                    needUpdateDb = true;
+                } else {
+                    finalLyric = "";
+                }
+            }
+        } catch (e) {
+            console.warn("[meting] on-play failed to fetch lyric url:", e);
+        }
+    }
+
     if (needUpdateDb && finalLyric) {
         await playerDB.songs.update(songId, {
             lyric: finalLyric,
             translatedLrc: finalTransLyric || null,
             lyricFormat: song.lyricFormat
         });
-        console.log("[meting] auto-healed and updated legacy lyric fields for song:", songId);
+        console.log("[meting] auto-healed and updated lyric fields for song:", songId);
     }
 
     if (finalLyric) {

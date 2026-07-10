@@ -62,9 +62,6 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     const splitted = splitMetingLyric(s.lrc);
   let finalTrans = splitted.trans || existing?.translatedLrc || null;
   let finalLrc = splitted.main || existing?.lyric || "";
-  if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
-      finalLrc = `meting-lyric::${finalLrc}`;
-  }
 
     songsToPut.push({
       id,
@@ -73,7 +70,7 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
-      lyricFormat: s.lrc ? detectLyricFormat(s.lrc) : existing?.lyricFormat || "",
+      lyricFormat: finalLrc ? detectLyricFormat(finalLrc) : existing?.lyricFormat || "",
       lyric: finalLrc,
       translatedLrc: finalTrans,
       romanLrc: existing?.romanLrc ?? null,
@@ -107,9 +104,6 @@ async function addSingleSong(
 
   let finalTrans = song.tlyric || existing?.translatedLrc || null;
   let finalLrc = song.lrc || existing?.lyric || "";
-  if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
-      finalLrc = `meting-lyric::${finalLrc}`;
-  }
 
   await db.songs.upsert([{
     id,
@@ -118,7 +112,7 @@ async function addSingleSong(
     songArtists: song.author || "Unknown Artist",
     songAlbum: existing?.songAlbum || "Unknown Album",
     duration: existing?.duration || 0,
-    lyricFormat: song.lrc ? detectLyricFormat(song.lrc) : existing?.lyricFormat || "",
+    lyricFormat: finalLrc ? detectLyricFormat(finalLrc) : existing?.lyricFormat || "",
     lyric: finalLrc,
     translatedLrc: finalTrans,
     romanLrc: existing?.romanLrc ?? null,
@@ -150,9 +144,6 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     const splitted = splitMetingLyric(s.lrc);
     let finalTrans = splitted.trans || existing?.translatedLrc || null;
     let finalLrc = splitted.main || existing?.lyric || "";
-    if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
-        finalLrc = `meting-lyric::${finalLrc}`;
-    }
 
     songsToPut.push({
       id,
@@ -161,7 +152,7 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
       songArtists: s.author || existing?.songArtists || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
-      lyricFormat: s.lrc ? detectLyricFormat(s.lrc) : existing?.lyricFormat || "",
+      lyricFormat: finalLrc ? detectLyricFormat(finalLrc) : existing?.lyricFormat || "",
       lyric: finalLrc,
       translatedLrc: finalTrans,
       romanLrc: existing?.romanLrc ?? null,

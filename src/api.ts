@@ -95,6 +95,31 @@ export async function fetchMetingSong(
   if (!song.url) throw new Error("无法获取歌曲音频地址");
   if (song.url.startsWith("//")) song.url = `https:${song.url}`;
   
+  if (song.lrc && (song.lrc.startsWith("http://") || song.lrc.startsWith("https://"))) {
+    try {
+      const lrcSep = song.lrc.includes("?") ? "&" : "?";
+      const lrcUrl = `${song.lrc}${lrcSep}r=${Math.random()}`;
+      console.log("[meting-api] fetching lyric url:", lrcUrl);
+      const lrcRes = await extensionContext.http.fetch(lrcUrl);
+      if (lrcRes.ok) {
+        const text = await lrcRes.text();
+        console.log("[meting-api] fetched lyric text length:", text.length);
+        if (text && !text.trim().startsWith("<")) {
+          song.lrc = text;
+        } else {
+          console.warn("[meting-api] lyric response is HTML, clearing");
+          song.lrc = "";
+        }
+      } else {
+        console.warn("[meting-api] lyric fetch not ok:", lrcRes.status);
+        song.lrc = "";
+      }
+    } catch (e) {
+      console.warn("[meting-api] failed to fetch lyric:", e);
+      song.lrc = "";
+    }
+  }
+
   const splitted = splitMetingLyric(song.lrc);
   song.lrc = splitted.main;
   song.tlyric = splitted.trans || undefined;
@@ -116,15 +141,51 @@ export async function fetchMetingPlaylist(
   if (!Array.isArray(data) || data.length === 0)
     throw new Error("歌单数据为空");
   const songs = data as MetingSongData[];
-  await Promise.all(
-    songs.map(async (s) => {
-      if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
-      
-      const splitted = splitMetingLyric(s.lrc);
-      s.lrc = splitted.main;
-      s.tlyric = splitted.trans || undefined;
-    })
-  );
+
+  for (const s of songs) {
+    if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
+  }
+
+  const CONCURRENCY = 4;
+  for (let i = 0; i < songs.length; i += CONCURRENCY) {
+    const batch = songs.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      batch.map(async (s) => {
+        if (s.lrc && (s.lrc.startsWith("http://") || s.lrc.startsWith("https://"))) {
+          const rawUrl = s.lrc;
+          let ok = false;
+          for (let attempt = 0; attempt < 3 && !ok; attempt++) {
+            try {
+              const lrcSep = rawUrl.includes("?") ? "&" : "?";
+              const lrcUrl = `${rawUrl}${lrcSep}r=${Math.random()}`;
+              const lrcRes = await extensionContext.http.fetch(lrcUrl);
+              if (lrcRes.ok) {
+                const text = await lrcRes.text();
+                if (text && !text.trim().startsWith("<")) {
+                  s.lrc = text;
+                } else {
+                  s.lrc = "";
+                }
+                ok = true;
+              }
+            } catch (e) {
+              if (attempt === 2) {
+                console.warn("[meting-api] playlist item failed to fetch lyric after retries:", rawUrl, e);
+                s.lrc = "";
+              } else {
+                await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+              }
+            }
+          }
+          if (!ok && s.lrc === rawUrl) s.lrc = "";
+        }
+
+        const splitted = splitMetingLyric(s.lrc);
+        s.lrc = splitted.main;
+        s.tlyric = splitted.trans || undefined;
+      })
+    );
+  }
   return songs;
 }
 
