@@ -170,8 +170,8 @@ async function loadAndPlayMetingSong(songId: string) {
     let finalTransLyric = song.translatedLrc;
     let needUpdateDb = false;
 
-    if (finalLyric && (finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
-        let originalUrl = finalLyric;
+    if (finalLyric && finalLyric.startsWith("meting-lyric::")) {
+        let originalUrl = finalLyric.replace("meting-lyric::", "");
         try {
             let fetchUrl = originalUrl;
             if (originalUrl.includes("meting")) {
@@ -181,38 +181,25 @@ async function loadAndPlayMetingSong(songId: string) {
             const res = await extensionContext.http.fetch(fetchUrl);
             if (res.ok) {
                 const text = await res.text();
-                const splitted = splitMetingLyric(text);
-                finalLyric = splitted.main;
-                finalTransLyric = splitted.trans || finalTransLyric;
-                
-                // Fetch 成功后，需要重新检测真实歌词的格式
-                const newFormat = detectLyricFormat(finalLyric);
-                if (newFormat !== song.lyricFormat) {
-                    song.lyricFormat = newFormat;
+                if (text && !text.trim().startsWith("<")) {
+                    const splitted = splitMetingLyric(text);
+                    finalLyric = splitted.main;
+                    finalTransLyric = splitted.trans || finalTransLyric;
+                    
+                    const newFormat = detectLyricFormat(finalLyric);
+                    if (newFormat !== song.lyricFormat) {
+                        song.lyricFormat = newFormat;
+                    }
+                    needUpdateDb = true;
+                } else {
+                    console.warn("[meting] fetched lyric is HTML or invalid:", text.substring(0, 50));
+                    finalLyric = "";
                 }
-                
-                needUpdateDb = true;
+            } else {
+                console.warn("[meting] fetch lyric returned not ok:", res.status);
             }
         } catch (e) {
             console.warn("[meting] loadAndPlayMetingSong failed to fetch lyric url:", e);
-        }
-    }
-
-    if (finalTransLyric && (finalTransLyric.startsWith("http://") || finalTransLyric.startsWith("https://"))) {
-        let originalUrl = finalTransLyric;
-        try {
-            let transUrl = originalUrl;
-            if (originalUrl.includes("meting")) {
-                const sep = originalUrl.includes("?") ? "&" : "?";
-                transUrl = `${originalUrl}${sep}r=${Math.random()}`;
-            }
-            const res = await extensionContext.http.fetch(transUrl);
-            if (res.ok) {
-                finalTransLyric = await res.text();
-                needUpdateDb = true;
-            }
-        } catch (e) {
-            console.warn("[meting] loadAndPlayMetingSong failed to fetch trans lyric url:", e);
         }
     }
 
@@ -226,7 +213,6 @@ async function loadAndPlayMetingSong(songId: string) {
         }
     }
 
-    // 同步把修正干净且拉取到的纯正文本写回数据库，让弹窗编辑器能够正确显示
     if (needUpdateDb && finalLyric) {
         await playerDB.songs.update(songId, {
             lyric: finalLyric,

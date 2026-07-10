@@ -59,9 +59,9 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
     
-    // 不再在导入时立即请求 URL 下载歌词文本，而是原样保存 URL
-    let finalTrans = s.tlyric || existing?.translatedLrc || null;
-    let finalLrc = s.lrc || existing?.lyric || "";
+    const splitted = splitMetingLyric(s.lrc);
+  let finalTrans = splitted.trans || existing?.translatedLrc || null;
+  let finalLrc = splitted.main || existing?.lyric || "";
 
     songsToPut.push({
       id,
@@ -141,8 +141,12 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     if (!s.url) continue;
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
-    let finalTrans = s.tlyric || existing?.translatedLrc || null;
-    let finalLrc = s.lrc || existing?.lyric || "";
+    const splitted = splitMetingLyric(s.lrc);
+    let finalTrans = splitted.trans || existing?.translatedLrc || null;
+    let finalLrc = splitted.main || existing?.lyric || "";
+    if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
+        finalLrc = `meting-lyric::${finalLrc}`;
+    }
 
     songsToPut.push({
       id,
