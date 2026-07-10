@@ -46,6 +46,21 @@ export function splitMetingLyric(lrcStr?: string): { main: string; trans: string
   return { main: lrcStr.trim(), trans: null };
 }
 
+export function detectLyricFormat(lrc: string | undefined | null): string {
+  if (!lrc) return "";
+  const processLyricStr = lrc.trim();
+  const yrcPattern = /^\[\d+,\d+\]\(\d+,\d+,\d+\)/m;
+  const qrcPattern = /^\[\d+,\d+\]/m;
+
+  if (yrcPattern.test(processLyricStr)) {
+    return "yrc";
+  }
+  if (qrcPattern.test(processLyricStr) && /\(\d+,\d+\)/.test(processLyricStr)) {
+    return "qrc";
+  }
+  return "lrc";
+}
+
 export function normalizeApiUrl(input: string): string {
   let url = input.trim();
   if (!url) return METING_API_PRESETS[0].url;
@@ -80,23 +95,6 @@ export async function fetchMetingSong(
   if (!song.url) throw new Error("无法获取歌曲音频地址");
   if (song.url.startsWith("//")) song.url = `https:${song.url}`;
   
-  if (song.lrc && (song.lrc.startsWith("http://") || song.lrc.startsWith("https://"))) {
-    let originalUrl = song.lrc;
-    try {
-      const sep = originalUrl.includes("?") ? "&" : "?";
-      const lrcUrl = `${originalUrl}${sep}r=${Math.random()}`;
-      const lrcRes = await extensionContext.http.fetch(lrcUrl, { cache: "no-store" });
-      if (lrcRes.ok) {
-        song.lrc = await lrcRes.text();
-      } else {
-        song.lrc = "";
-      }
-    } catch (e) {
-      console.warn("Meting fetched lyric url but failed to download:", e);
-      song.lrc = "";
-    }
-  }
-
   const splitted = splitMetingLyric(song.lrc);
   song.lrc = splitted.main;
   song.tlyric = splitted.trans || undefined;
@@ -121,22 +119,7 @@ export async function fetchMetingPlaylist(
   await Promise.all(
     songs.map(async (s) => {
       if (s.url?.startsWith("//")) s.url = `https:${s.url}`;
-      if (s.lrc && (s.lrc.startsWith("http://") || s.lrc.startsWith("https://"))) {
-        let originalUrl = s.lrc;
-        try {
-          const sep = originalUrl.includes("?") ? "&" : "?";
-          const lrcUrl = `${originalUrl}${sep}r=${Math.random()}`;
-          const lrcRes = await extensionContext.http.fetch(lrcUrl, { cache: "no-store" });
-          if (lrcRes.ok) {
-            s.lrc = await lrcRes.text();
-          } else {
-            s.lrc = "";
-          }
-        } catch (e) {
-          console.warn("Meting playlist item fetched lyric url but failed to download:", e);
-          s.lrc = "";
-        }
-      }
+      
       const splitted = splitMetingLyric(s.lrc);
       s.lrc = splitted.main;
       s.tlyric = splitted.trans || undefined;

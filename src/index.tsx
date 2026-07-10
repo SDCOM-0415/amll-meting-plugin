@@ -1,4 +1,5 @@
 import { SettingsCard } from "./SettingsCard";
+import { splitMetingLyric, detectLyricFormat } from "./api";
 
 declare const extensionContext: any;
 declare const React: typeof import("react");
@@ -145,7 +146,12 @@ async function loadAndPlayMetingSong(songId: string) {
     );
     const coverUrl = song.coverPath || "";
     if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
-        extensionContext.http.fetch(coverUrl)
+        let fetchUrl = coverUrl;
+        if (coverUrl.includes("meting")) {
+            const sep = coverUrl.includes("?") ? "&" : "?";
+            fetchUrl = `${coverUrl}${sep}r=${Math.random()}`;
+        }
+        extensionContext.http.fetch(fetchUrl)
             .then((res: any) => res.blob())
             .then((blob: Blob) => {
                 const objectUrl = URL.createObjectURL(blob);
@@ -165,10 +171,26 @@ async function loadAndPlayMetingSong(songId: string) {
     let needUpdateDb = false;
 
     if (finalLyric && (finalLyric.startsWith("http://") || finalLyric.startsWith("https://"))) {
+        let originalUrl = finalLyric;
         try {
-            const res = await extensionContext.http.fetch(finalLyric);
+            let fetchUrl = originalUrl;
+            if (originalUrl.includes("meting")) {
+                const sep = originalUrl.includes("?") ? "&" : "?";
+                fetchUrl = `${originalUrl}${sep}r=${Math.random()}`;
+            }
+            const res = await extensionContext.http.fetch(fetchUrl);
             if (res.ok) {
-                finalLyric = await res.text();
+                const text = await res.text();
+                const splitted = splitMetingLyric(text);
+                finalLyric = splitted.main;
+                finalTransLyric = splitted.trans || finalTransLyric;
+                
+                // Fetch 成功后，需要重新检测真实歌词的格式
+                const newFormat = detectLyricFormat(finalLyric);
+                if (newFormat !== song.lyricFormat) {
+                    song.lyricFormat = newFormat;
+                }
+                
                 needUpdateDb = true;
             }
         } catch (e) {
@@ -177,8 +199,14 @@ async function loadAndPlayMetingSong(songId: string) {
     }
 
     if (finalTransLyric && (finalTransLyric.startsWith("http://") || finalTransLyric.startsWith("https://"))) {
+        let originalUrl = finalTransLyric;
         try {
-            const res = await extensionContext.http.fetch(finalTransLyric);
+            let transUrl = originalUrl;
+            if (originalUrl.includes("meting")) {
+                const sep = originalUrl.includes("?") ? "&" : "?";
+                transUrl = `${originalUrl}${sep}r=${Math.random()}`;
+            }
+            const res = await extensionContext.http.fetch(transUrl);
             if (res.ok) {
                 finalTransLyric = await res.text();
                 needUpdateDb = true;
@@ -202,7 +230,8 @@ async function loadAndPlayMetingSong(songId: string) {
     if (needUpdateDb && finalLyric) {
         await playerDB.songs.update(songId, {
             lyric: finalLyric,
-            translatedLrc: finalTransLyric || null
+            translatedLrc: finalTransLyric || null,
+            lyricFormat: song.lyricFormat
         });
         console.log("[meting] auto-healed and updated legacy lyric fields for song:", songId);
     }

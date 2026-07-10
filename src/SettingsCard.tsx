@@ -8,6 +8,7 @@ import {
     fetchMetingPlaylist,
     makeSongId,
     splitMetingLyric,
+    detectLyricFormat,
     type MetingServer,
   } from "./api";
 
@@ -19,21 +20,6 @@ interface NewPlaylistForm {
   playlistId: string;
   apiSource: string;
   customApiUrl: string;
-}
-
-function detectLyricFormat(lrc: string | undefined | null): string {
-  if (!lrc) return "";
-  const processLyricStr = lrc.trim();
-  const yrcPattern = /^\[\d+,\d+\]\(\d+,\d+,\d+\)/m;
-  const qrcPattern = /^\[\d+,\d+\]/m;
-
-  if (yrcPattern.test(processLyricStr)) {
-    return "yrc";
-  }
-  if (qrcPattern.test(processLyricStr) && /\(\d+,\d+\)/.test(processLyricStr)) {
-    return "qrc";
-  }
-  return "lrc";
 }
 
 const SERVERS: { value: MetingServer; label: string }[] = [
@@ -73,16 +59,9 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
     
-    // 向后兼容处理，如果之前存进了合并的 lrc
+    // 不再在导入时立即请求 URL 下载歌词文本，而是原样保存 URL
     let finalTrans = s.tlyric || existing?.translatedLrc || null;
     let finalLrc = s.lrc || existing?.lyric || "";
-    if (!s.tlyric && finalLrc) {
-        const splitted = splitMetingLyric(finalLrc);
-        if (splitted.trans) {
-            finalLrc = splitted.main;
-            finalTrans = splitted.trans;
-        }
-    }
 
     songsToPut.push({
       id,
@@ -125,13 +104,6 @@ async function addSingleSong(
 
   let finalTrans = song.tlyric || existing?.translatedLrc || null;
   let finalLrc = song.lrc || existing?.lyric || "";
-  if (!song.tlyric && finalLrc) {
-      const splitted = splitMetingLyric(finalLrc);
-      if (splitted.trans) {
-          finalLrc = splitted.main;
-          finalTrans = splitted.trans;
-      }
-  }
 
   await db.songs.upsert([{
     id,
@@ -171,13 +143,6 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     const existing = await db.songs.get(id);
     let finalTrans = s.tlyric || existing?.translatedLrc || null;
     let finalLrc = s.lrc || existing?.lyric || "";
-    if (!s.tlyric && finalLrc) {
-        const splitted = splitMetingLyric(finalLrc);
-        if (splitted.trans) {
-            finalLrc = splitted.main;
-            finalTrans = splitted.trans;
-        }
-    }
 
     songsToPut.push({
       id,
