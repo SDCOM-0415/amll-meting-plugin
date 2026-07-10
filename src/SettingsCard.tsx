@@ -62,6 +62,9 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     const splitted = splitMetingLyric(s.lrc);
   let finalTrans = splitted.trans || existing?.translatedLrc || null;
   let finalLrc = splitted.main || existing?.lyric || "";
+  if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
+      finalLrc = `meting-lyric::${finalLrc}`;
+  }
 
     songsToPut.push({
       id,
@@ -104,6 +107,9 @@ async function addSingleSong(
 
   let finalTrans = song.tlyric || existing?.translatedLrc || null;
   let finalLrc = song.lrc || existing?.lyric || "";
+  if (finalLrc && (finalLrc.startsWith("http://") || finalLrc.startsWith("https://"))) {
+      finalLrc = `meting-lyric::${finalLrc}`;
+  }
 
   await db.songs.upsert([{
     id,
