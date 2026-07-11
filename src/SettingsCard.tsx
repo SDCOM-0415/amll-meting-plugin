@@ -63,8 +63,8 @@ async function importPlaylist(form: NewPlaylistForm): Promise<string> {
     const existing = await db.songs.get(id);
     
     const splitted = splitMetingLyric(s.lrc);
-  let finalTrans = splitted.trans || existing?.translatedLrc || null;
-  let finalLrc = splitted.main || existing?.lyric || "";
+    const finalTrans = s.tlyric || splitted.trans || existing?.translatedLrc || null;
+    const finalLrc = splitted.main || existing?.lyric || "";
 
     songsToPut.push({
       id,
@@ -145,7 +145,7 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
     const splitted = splitMetingLyric(s.lrc);
-    const finalTrans = splitted.trans || null;
+    const finalTrans = s.tlyric || splitted.trans || null;
     const finalLrc = splitted.main || "";
 
     songsToPut.push({
