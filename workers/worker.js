@@ -79,12 +79,17 @@ async function proxyDownload(request, env, tagName, assetName) {
   if (!asset?.browser_download_url) return json({ error: "Asset not found" }, 404);
 
   const upstream = await fetch(asset.browser_download_url, {
-    headers: { "user-agent": "amll-meting-plugin-update-proxy" },
+    headers: {
+      "user-agent": "amll-meting-plugin-update-proxy",
+      "accept-encoding": "identity",
+    },
     redirect: "follow",
   });
   if (!upstream.ok) return json({ error: `Download failed: ${upstream.status}` }, 502);
 
   const headers = new Headers(upstream.headers);
+  headers.delete("content-encoding");
+  headers.delete("content-length");
   headers.set("access-control-allow-origin", "*");
   headers.set("cache-control", "public, max-age=300");
   headers.set("content-type", asset.content_type || "application/octet-stream");

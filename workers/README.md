@@ -12,7 +12,7 @@
 https://amll-meting-update.furryx.top/download/{tagName或name}/amll-meting-plugin.js
 ```
 
-版本号位于下载路径中，可以避免浏览器继续使用旧版本缓存。
+下载响应会主动请求并移除 Brotli（`Content-Encoding: br`）压缩，兼容不支持 Brotli 的下载器，同时保留 `Range` 分段下载支持。
 - `OPTIONS *`：支持跨域预检
 
 ## 部署
