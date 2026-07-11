@@ -1,7 +1,7 @@
 declare const extensionContext: any;
 
 export const PLUGIN_VERSION = "1.0.2";
-export const GITHUB_RELEASE_API = "https://api.github.com/repos/SDCOM-0415/amll-meting-plugin/releases/latest";
+export const UPDATE_PROXY_API = "https://你的代理域名/api/latest";
 
 export interface PluginUpdateInfo {
   currentVersion: string;
@@ -39,20 +39,20 @@ export function subscribePluginUpdate(listener: (info: PluginUpdateInfo) => void
 
 export async function checkPluginUpdate(): Promise<PluginUpdateInfo | null> {
   try {
-    const response = await extensionContext.http.fetch(GITHUB_RELEASE_API);
-    if (!response.ok) throw new Error(`GitHub API 请求失败: ${response.status}`);
+    const response = await extensionContext.http.fetch(UPDATE_PROXY_API);
+    if (!response.ok) throw new Error(`更新代理请求失败: ${response.status}`);
     const release = await response.json();
-    const latestVersion = String(release.tag_name || release.name || "").trim();
+    const latestVersion = String(release.tagName || release.name || "").trim();
     if (!latestVersion) throw new Error("GitHub Release 未返回版本号");
     const asset = Array.isArray(release.assets)
-      ? release.assets.find((item: any) => String(item.name || "").endsWith(".js"))
+      ? release.assets.find((item: any) => String(item.name || "") === "amll-meting-plugin.js")
       : null;
     latestUpdateInfo = {
       currentVersion: PLUGIN_VERSION,
       latestVersion,
       updateAvailable: compareVersions(latestVersion, PLUGIN_VERSION) > 0,
-      releaseUrl: String(release.html_url || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
-      downloadUrl: String(asset?.browser_download_url || release.html_url || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
+      releaseUrl: String(release.releaseUrl || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
+      downloadUrl: String(asset?.downloadUrl || release.releaseUrl || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
     };
     updateListeners.forEach((listener) => listener(latestUpdateInfo as PluginUpdateInfo));
     console.log("[meting] GitHub release check:", latestUpdateInfo);

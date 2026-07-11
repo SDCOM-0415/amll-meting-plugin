@@ -3,8 +3,16 @@
 这是一个 Cloudflare Worker，用于代理 `SDCOM-0415/amll-meting-plugin` 的 GitHub latest Release：
 
 - `GET /`：直接跳转到 GitHub Release 页面
-- `GET /api/latest`：返回最新版本和经过代理重写的下载地址
-- `GET /download/:asset`：由 Worker 代理下载 Release 附件
+- `GET /api/latest`：返回最新版本和按 Release 版本生成的代理下载地址
+- `GET /download/{tagName}/{assetName}`：由 Worker 从对应 Tag 的 GitHub Release 拉取文件并直接返回给浏览器下载，不会重定向到 GitHub
+
+下载地址格式：
+
+```text
+https://代理域名/download/{tagName或name}/amll-meting-plugin.js
+```
+
+版本号位于下载路径中，可以避免浏览器继续使用旧版本缓存。
 - `OPTIONS *`：支持跨域预检
 
 ## 部署

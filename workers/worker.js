@@ -28,8 +28,11 @@ function githubHeaders(env) {
   return headers;
 }
 
-async function getLatestRelease(env) {
-  const response = await fetch(GITHUB_API, {
+async function getRelease(env, tagName) {
+  const endpoint = tagName
+    ? `https://api.github.com/repos/${REPOSITORY}/releases/tags/${encodeURIComponent(tagName)}`
+    : GITHUB_API;
+  const response = await fetch(endpoint, {
     headers: githubHeaders(env),
     cf: { cacheTtl: 300, cacheEverything: true },
   });
@@ -37,14 +40,19 @@ async function getLatestRelease(env) {
   return response.json();
 }
 
+async function getLatestRelease(env) {
+  return getRelease(env);
+}
+
 function publicRelease(release, requestUrl) {
   const base = new URL(requestUrl).origin;
+  const releaseKey = encodeURIComponent(release.tag_name || release.name || "latest");
   const assets = Array.isArray(release.assets)
     ? release.assets.map((asset) => ({
         name: asset.name,
         size: asset.size,
         contentType: asset.content_type,
-        downloadUrl: `${base}/download/${encodeURIComponent(asset.name)}`,
+        downloadUrl: `${base}/download/${releaseKey}/${encodeURIComponent(asset.name)}`,
       }))
     : [];
 
@@ -58,12 +66,12 @@ function publicRelease(release, requestUrl) {
   };
 }
 
-async function proxyDownload(request, env, assetName) {
-  if (!assetName || assetName.includes("/") || assetName.includes("\\")) {
-    return json({ error: "Invalid asset name" }, 400);
+async function proxyDownload(request, env, tagName, assetName) {
+  if (!tagName || !assetName || tagName.includes("/") || tagName.includes("\\") || assetName.includes("/") || assetName.includes("\\")) {
+    return json({ error: "Invalid release tag or asset name" }, 400);
   }
 
-  const release = await getLatestRelease(env);
+  const release = await getRelease(env, tagName);
   const asset = Array.isArray(release.assets)
     ? release.assets.find((item) => item.name === assetName)
     : null;
@@ -78,8 +86,9 @@ async function proxyDownload(request, env, assetName) {
   const headers = new Headers(upstream.headers);
   headers.set("access-control-allow-origin", "*");
   headers.set("cache-control", "public, max-age=300");
+  headers.set("content-type", asset.content_type || "application/octet-stream");
   headers.set("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(asset.name)}`);
-  return new Response(upstream.body, { status: upstream.status, headers });
+  return new Response(request.method === "HEAD" ? null : upstream.body, { status: upstream.status, headers });
 }
 
 async function handle(request, env) {
@@ -102,7 +111,14 @@ async function handle(request, env) {
 
   if (url.pathname.startsWith("/download/")) {
     try {
-      return await proxyDownload(request, env, decodeURIComponent(url.pathname.slice("/download/".length)));
+      const parts = url.pathname.slice("/download/".length).split("/");
+      if (parts.length !== 2) return json({ error: "Expected /download/{tagName}/{assetName}" }, 400);
+      return await proxyDownload(
+        request,
+        env,
+        decodeURIComponent(parts[0]),
+        decodeURIComponent(parts[1])
+      );
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Proxy request failed" }, 502);
     }
