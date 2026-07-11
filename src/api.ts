@@ -1,7 +1,7 @@
 declare const extensionContext: any;
 
 export const PLUGIN_VERSION = "1.0.2";
-export const UPDATE_PROXY_API = "https://你的代理域名/api/latest";
+export const UPDATE_PROXY_API = "https://amll-meting-update.furryx.top/api/latest";
 
 export interface PluginUpdateInfo {
   currentVersion: string;

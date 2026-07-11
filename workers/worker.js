@@ -1,6 +1,7 @@
 const REPOSITORY = "SDCOM-0415/amll-meting-plugin";
 const GITHUB_API = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
 const GITHUB_RELEASES = `https://github.com/${REPOSITORY}/releases`;
+const PROXY_ORIGIN = "https://amll-meting-update.furryx.top";
 
 function corsHeaders(contentType) {
   return {
@@ -45,7 +46,7 @@ async function getLatestRelease(env) {
 }
 
 function publicRelease(release, requestUrl) {
-  const base = new URL(requestUrl).origin;
+  const base = PROXY_ORIGIN;
   const releaseKey = encodeURIComponent(release.tag_name || release.name || "latest");
   const assets = Array.isArray(release.assets)
     ? release.assets.map((asset) => ({

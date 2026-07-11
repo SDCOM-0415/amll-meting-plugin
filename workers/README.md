@@ -9,7 +9,7 @@
 下载地址格式：
 
 ```text
-https://代理域名/download/{tagName或name}/amll-meting-plugin.js
+https://amll-meting-update.furryx.top/download/{tagName或name}/amll-meting-plugin.js
 ```
 
 版本号位于下载路径中，可以避免浏览器继续使用旧版本缓存。
