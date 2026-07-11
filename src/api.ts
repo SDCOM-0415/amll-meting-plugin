@@ -1,5 +1,67 @@
 declare const extensionContext: any;
 
+export const PLUGIN_VERSION = "1.0.2";
+export const GITHUB_RELEASE_API = "https://api.github.com/repos/SDCOM-0415/amll-meting-plugin/releases/latest";
+
+export interface PluginUpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseUrl: string;
+  downloadUrl: string;
+}
+
+let latestUpdateInfo: PluginUpdateInfo | null = null;
+const updateListeners = new Set<(info: PluginUpdateInfo) => void>();
+
+function versionParts(version: string): number[] {
+  return version.replace(/^v/i, "").split(/[.-]/).map((part) => Number.parseInt(part, 10) || 0);
+}
+
+export function compareVersions(left: string, right: string): number {
+  const a = versionParts(left);
+  const b = versionParts(right);
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0) ? 1 : -1;
+  }
+  return 0;
+}
+
+export function getPluginUpdateInfo(): PluginUpdateInfo | null {
+  return latestUpdateInfo;
+}
+
+export function subscribePluginUpdate(listener: (info: PluginUpdateInfo) => void): () => void {
+  updateListeners.add(listener);
+  if (latestUpdateInfo) listener(latestUpdateInfo);
+  return () => updateListeners.delete(listener);
+}
+
+export async function checkPluginUpdate(): Promise<PluginUpdateInfo | null> {
+  try {
+    const response = await extensionContext.http.fetch(GITHUB_RELEASE_API);
+    if (!response.ok) throw new Error(`GitHub API 请求失败: ${response.status}`);
+    const release = await response.json();
+    const latestVersion = String(release.tag_name || release.name || "").trim();
+    if (!latestVersion) throw new Error("GitHub Release 未返回版本号");
+    const asset = Array.isArray(release.assets)
+      ? release.assets.find((item: any) => String(item.name || "").endsWith(".js"))
+      : null;
+    latestUpdateInfo = {
+      currentVersion: PLUGIN_VERSION,
+      latestVersion,
+      updateAvailable: compareVersions(latestVersion, PLUGIN_VERSION) > 0,
+      releaseUrl: String(release.html_url || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
+      downloadUrl: String(asset?.browser_download_url || release.html_url || "https://github.com/SDCOM-0415/amll-meting-plugin/releases"),
+    };
+    updateListeners.forEach((listener) => listener(latestUpdateInfo as PluginUpdateInfo));
+    console.log("[meting] GitHub release check:", latestUpdateInfo);
+    return latestUpdateInfo;
+  } catch (error) {
+    console.warn("[meting] GitHub release check failed:", error);
+    return null;
+  }
+}
 export const METING_API_PRESETS = [
   {
     value: "meting",

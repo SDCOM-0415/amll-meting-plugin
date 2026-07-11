@@ -1,5 +1,5 @@
 import { SettingsCard } from "./SettingsCard";
-import { splitMetingLyric, detectLyricFormat } from "./api";
+import { splitMetingLyric, detectLyricFormat, checkPluginUpdate } from "./api";
 
 declare const extensionContext: any;
 declare const React: typeof import("react");
@@ -281,6 +281,7 @@ function teardown() {
 
 function setup() {
     console.log("[meting] setup() called");
+    void checkPluginUpdate();
     extensionContext.registerComponent("settings", SettingsCard);
 
     extensionContext.addEventListener("extension-load", () => {

@@ -1,0 +1,7 @@
+name = "amll-meting-release-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# 可选：建议通过 wrangler secret put GITHUB_TOKEN 配置，而不是写入此文件
+# GITHUB_TOKEN = ""

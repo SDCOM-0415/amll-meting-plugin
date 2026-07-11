@@ -9,6 +9,9 @@ import {
     makeSongId,
     splitMetingLyric,
     detectLyricFormat,
+    checkPluginUpdate,
+    subscribePluginUpdate,
+    type PluginUpdateInfo,
     type MetingServer,
   } from "./api";
 
@@ -188,6 +191,8 @@ export function SettingsCard() {
     "idle" | "loading" | "ok" | "error"
   >("idle");
   const [msg, setMsg] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<PluginUpdateInfo | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
   const { playlists, reload: loadMetingPlaylists } = useMetingPlaylists();
   const [showPlaylists, setShowPlaylists] = useState(false);
 
@@ -195,6 +200,19 @@ export function SettingsCard() {
     await loadMetingPlaylists();
     setShowPlaylists(true);
   }, [loadMetingPlaylists]);
+
+  const handleCheckUpdate = useCallback(async () => {
+    setUpdateChecking(true);
+    const info = await checkPluginUpdate();
+    if (info) setUpdateInfo(info);
+    setUpdateChecking(false);
+  }, []);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribePluginUpdate(setUpdateInfo);
+    void checkPluginUpdate();
+    return unsubscribe;
+  }, []);
 
   const resolveApiUrl = (source: string, custom: string) =>
     source === "custom"
@@ -313,6 +331,26 @@ export function SettingsCard() {
     "div",
     { style: cardStyle },
     h("h3", { style: { margin: "0 0 12px", fontSize: "15px" } }, "🎵 Meting 音乐插件"),
+    h(
+      "div",
+      { style: { marginBottom: "12px", padding: "8px", borderRadius: "4px", background: updateInfo?.updateAvailable ? "var(--yellow-3, #fff3cd)" : "var(--gray-3, #f1f3f5)" } },
+      h("div", null, updateInfo
+        ? updateInfo.updateAvailable
+          ? `发现新版本：${updateInfo.latestVersion}（当前 ${updateInfo.currentVersion}）`
+          : `当前已是最新版本：${updateInfo.currentVersion}`
+        : "正在检查插件更新..."),
+      h("button", {
+        style: { ...btnStyle, marginTop: "6px", padding: "4px 10px" },
+        disabled: updateChecking,
+        onClick: handleCheckUpdate,
+      }, updateChecking ? "检查中..." : "检查更新"),
+      updateInfo?.updateAvailable && h("a", {
+        href: updateInfo.downloadUrl,
+        target: "_blank",
+        rel: "noreferrer",
+        style: { marginLeft: "8px", color: "var(--accent-9, #0070f3)" },
+      }, "打开下载页面")
+    ),
     h(
       "div",
       { style: { marginBottom: "12px" } },
