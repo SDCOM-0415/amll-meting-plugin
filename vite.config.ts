@@ -3,7 +3,7 @@ import { writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const METADATA = `// @id amll-meting-plugin
-// @version 1.0.2
+// @version 1.0.3
 // @icon https://meting.sdcom.top/favicon.ico
 // @name:zh-CN Meting 音乐插件
 // @name:en-US Meting Music Plugin
