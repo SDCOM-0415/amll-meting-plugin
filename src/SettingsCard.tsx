@@ -142,27 +142,30 @@ async function refreshMetingPlaylist(playlistId: number): Promise<void> {
     const id = await makeSongId(s.url);
     const existing = await db.songs.get(id);
     const splitted = splitMetingLyric(s.lrc);
-    let finalTrans = splitted.trans || existing?.translatedLrc || null;
-    let finalLrc = splitted.main || existing?.lyric || "";
+    const finalTrans = splitted.trans || null;
+    const finalLrc = splitted.main || "";
 
     songsToPut.push({
       id,
       filePath: s.url,
-      songName: s.title || existing?.songName || "Unknown Title",
-      songArtists: s.author || existing?.songArtists || "Unknown Artist",
+      songName: s.title || "Unknown Title",
+      songArtists: s.author || "Unknown Artist",
       songAlbum: existing?.songAlbum || "Unknown Album",
       duration: existing?.duration || 0,
-      lyricFormat: finalLrc ? detectLyricFormat(finalLrc) : existing?.lyricFormat || "",
+      lyricFormat: finalLrc ? detectLyricFormat(finalLrc) : "",
       lyric: finalLrc,
       translatedLrc: finalTrans,
       romanLrc: existing?.romanLrc ?? null,
-      coverPath: s.pic || existing?.coverPath || null,
+      coverPath: s.pic || null,
     });
     songIds.push(id);
   }
 
   if (songsToPut.length > 0) await db.songs.upsert(songsToPut);
-  if (songIds.length > 0) await db.playlists.addSongs(playlistId, songIds);
+  await db.playlists.update(playlistId, {
+    songIds,
+    updateTime: Date.now(),
+  });
 }
 
 export function SettingsCard() {
